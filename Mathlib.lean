@@ -6018,6 +6018,7 @@ public import Mathlib.NumberTheory.FrobeniusNumber
 public import Mathlib.NumberTheory.FunctionField
 public import Mathlib.NumberTheory.FundamentalDiscriminant
 public import Mathlib.NumberTheory.GaussSum
+public import Mathlib.NumberTheory.HardyRamanujan
 public import Mathlib.NumberTheory.Harmonic.Bounds
 public import Mathlib.NumberTheory.Harmonic.Defs
 public import Mathlib.NumberTheory.Harmonic.EulerMascheroni
