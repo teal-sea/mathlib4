@@ -38,6 +38,8 @@ Hardy–Ramanujan theorem on the normal order of `ω`.
   an error of at most `N`.
 * `ArithmeticFunction.sum_cardDistinctFactors_sq_Ioc_le`: the second moment is at most
   `N * S ^ 2 + N * S`, where `S = ∑ 1/p`.
+* `ArithmeticFunction.sum_sq_sub_sum_inv_primes_le`: Turán's variance bound, centred at `S`,
+  with constant `3` and no arithmetic input beyond the two moments.
 -/
 
 @[expose] public section
@@ -237,5 +239,37 @@ theorem sum_cardDistinctFactors_sq_Ioc_le (N : ℕ) :
         + (N : ℝ) * ∑ p ∈ Finset.Ioc 0 N with p.Prime, ((p : ℝ))⁻¹ := by
         rw [← hfirst, ← hdiag, ← Finset.sum_add_distrib]
         exact Finset.sum_congr rfl fun p _ => Finset.sum_add_distrib
+
+/-- **Turán's variance bound, centred at the prime harmonic sum.**
+
+`∑_{n ≤ N} (ω n - S) ^ 2 ≤ 3 * N * S`, where `S = ∑_{p ≤ N} 1/p`.
+
+This is unconditional. The classical statement centres the variance at `log log N` instead,
+which requires an estimate of `S - log log N` — Mertens' second theorem — and pays for it in
+the constant. Centred at `S` itself, the two moment bounds are already enough, and the
+constant is `3`. -/
+theorem sum_sq_sub_sum_inv_primes_le (N : ℕ) :
+    ∑ n ∈ Finset.Ioc 0 N,
+        ((ω n : ℝ) - ∑ p ∈ Finset.Ioc 0 N with p.Prime, ((p : ℝ))⁻¹) ^ 2
+      ≤ 3 * (N : ℝ) * ∑ p ∈ Finset.Ioc 0 N with p.Prime, ((p : ℝ))⁻¹ := by
+  set S := ∑ p ∈ Finset.Ioc 0 N with p.Prime, ((p : ℝ))⁻¹ with hS
+  have hN0 : (0 : ℝ) ≤ (N : ℝ) := Nat.cast_nonneg N
+  have hM1 := le_sum_cardDistinctFactors_Ioc N
+  have hM2 := sum_cardDistinctFactors_sq_Ioc_le N
+  have hexp : ∑ n ∈ Finset.Ioc 0 N, ((ω n : ℝ) - S) ^ 2
+      = ((∑ n ∈ Finset.Ioc 0 N, ω n ^ 2 : ℕ) : ℝ)
+        - 2 * S * ((∑ n ∈ Finset.Ioc 0 N, ω n : ℕ) : ℝ) + (N : ℝ) * S ^ 2 := by
+    push_cast
+    rw [Finset.mul_sum, ← Finset.sum_sub_distrib]
+    have hcard : ((Finset.Ioc 0 N).card : ℝ) = (N : ℝ) := by
+      rw [Nat.card_Ioc, Nat.sub_zero]
+    rw [show (N : ℝ) * S ^ 2 = ∑ _n ∈ Finset.Ioc 0 N, S ^ 2 by
+      rw [Finset.sum_const, nsmul_eq_mul, hcard]]
+    rw [← Finset.sum_add_distrib]
+    exact Finset.sum_congr rfl fun n _ => by ring
+  have hSnonneg : (0 : ℝ) ≤ S := by
+    refine Finset.sum_nonneg fun p _ => ?_
+    positivity
+  nlinarith [hexp, hM1, hM2, mul_nonneg hN0 hSnonneg]
 
 end ArithmeticFunction
