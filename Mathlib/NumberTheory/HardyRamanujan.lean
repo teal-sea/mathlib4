@@ -9,12 +9,17 @@ public import Mathlib.Basic.Real.Basic
 public import Mathlib.Data.Nat.Cast.Order.Field
 public import Mathlib.Data.Nat.Factorization.Basic
 public import Mathlib.NumberTheory.ArithmeticFunction.Misc
+public import Mathlib.NumberTheory.Mertens
 
 /-!
-# Double counting for the number of distinct prime factors
+# Hardy–Ramanujan: the normal order of the number of distinct prime factors
 
-This file proves the two counting identities that express the first and second moments of
-`ω`, the number of distinct prime factors, as sums over primes:
+This file proves the Hardy–Ramanujan theorem: for every `ε > 0` the density of the
+`n ≤ N` with `|ω n - log log N| > ε log log N` tends to zero, where `ω` is the number
+of distinct prime factors.
+
+The route is Turán's second-moment method: the two counting identities express the first and
+second moments of `ω` as sums over primes:
 
 $$ \sum_{n \le N} \omega(n) = \sum_{p \le N} \left\lfloor N/p \right\rfloor $$
 
@@ -40,11 +45,14 @@ Hardy–Ramanujan theorem on the normal order of `ω`.
   `N * S ^ 2 + N * S`, where `S = ∑ 1/p`.
 * `ArithmeticFunction.sum_sq_sub_sum_inv_primes_le`: Turán's variance bound, centred at `S`,
   with constant `3` and no arithmetic input beyond the two moments.
+* `ArithmeticFunction.sum_sq_dev_loglog_le`: the same bound recentred at `log log N`, using
+  the Mertens band `|∑ 1/p - log log N| ≤ 9` from `Mathlib.NumberTheory.Mertens`.
+* `ArithmeticFunction.hardy_ramanujan`: the Hardy–Ramanujan theorem.
 -/
 
 @[expose] public section
 
-open Finset
+open Finset Filter Topology
 
 namespace Nat
 
@@ -267,5 +275,133 @@ theorem sum_sq_sub_sum_inv_primes_le (N : ℕ) :
     refine Finset.sum_nonneg fun p _ => ?_
     positivity
   nlinarith [hexp, hM1, hM2, mul_nonneg hN0 hSnonneg]
+
+
+/-! ### Normal order and the Hardy–Ramanujan theorem -/
+
+/-- `loglog N = log (log N)`, the normalising function of the theorem.  For
+`N ≤ 2` both sides are interpreted with Mathlib's `log 0 = 0`; the theorem is
+only used where `1 ≤ loglog N`. -/
+noncomputable def loglog (N : ℕ) : ℝ := Real.log (Real.log N)
+
+/-- The integers `n ≤ N` whose number of distinct prime factors deviates from
+`loglog N` by more than a fraction `ε` of it. -/
+noncomputable def exceptional (N : ℕ) (ε : ℝ) : Finset ℕ :=
+  (Finset.Ioc 0 N).filter fun n => ε * loglog N < |(ω n : ℝ) - loglog N|
+
+/-- **The Hardy–Ramanujan theorem**: the exceptional set has density zero. -/
+def HardyRamanujanTheorem : Prop :=
+  ∀ ε : ℝ, 0 < ε →
+    Tendsto (fun N : ℕ => ((exceptional N ε).card : ℝ) / (N : ℝ)) atTop (𝓝 0)
+
+theorem tendsto_loglog : Tendsto loglog atTop atTop :=
+  Real.tendsto_log_atTop.comp (Real.tendsto_log_atTop.comp tendsto_natCast_atTop_atTop)
+
+/-- Turán's variance bound recentred at `loglog N`, with the Mertens band `9`
+and no optimisation of constants: `222` is `2 * 3 * 10 + 2 * 81` and is far
+from optimal.  Only the shape matters for the theorem. -/
+theorem sum_sq_dev_loglog_le {N : ℕ} (hL : 1 ≤ loglog N) :
+    ∑ n ∈ Finset.Ioc 0 N, ((ω n : ℝ) - loglog N) ^ 2
+      ≤ 222 * (N : ℝ) * loglog N := by
+  set S := ∑ p ∈ Finset.Ioc 0 N with p.Prime, ((p : ℝ))⁻¹ with hS
+  set L := loglog N with hLdef
+  have hband := abs_le.mp (mertens_second_theorem N)
+  have hband' : -(9 : ℝ) ≤ S - L ∧ S - L ≤ 9 := by
+    have h1 := hband.1
+    have h2 := hband.2
+    rw [← hS] at h1 h2
+    have hlog : Real.log (Real.log (N : ℝ)) = L := by
+      rw [hLdef]
+      unfold loglog
+      rfl
+    rw [hlog] at h1 h2
+    exact ⟨h1, h2⟩
+  have hbu : S ≤ L + 9 := by linarith [hband'.2]
+  have hN0 : (0 : ℝ) ≤ (N : ℝ) := Nat.cast_nonneg N
+  have hvar : ∑ n ∈ Finset.Ioc 0 N, ((ω n : ℝ) - S) ^ 2 ≤ 3 * (N : ℝ) * S :=
+    sum_sq_sub_sum_inv_primes_le N
+  have hsq : (S - L) ^ 2 ≤ 81 := by nlinarith [hband'.1, hband'.2]
+  have hterm : ∀ n ∈ Finset.Ioc 0 N,
+      ((ω n : ℝ) - L) ^ 2 ≤ 2 * ((ω n : ℝ) - S) ^ 2 + 2 * (S - L) ^ 2 := by
+    intro n _
+    have hd : (ω n : ℝ) - L = ((ω n : ℝ) - S) + (S - L) := by ring
+    rw [hd]
+    nlinarith [sq_nonneg (((ω n : ℝ) - S) - (S - L))]
+  have hsum : ∑ n ∈ Finset.Ioc 0 N, ((ω n : ℝ) - L) ^ 2
+      ≤ 2 * ∑ n ∈ Finset.Ioc 0 N, ((ω n : ℝ) - S) ^ 2 + 2 * (N : ℝ) * (S - L) ^ 2 := by
+    calc ∑ n ∈ Finset.Ioc 0 N, ((ω n : ℝ) - L) ^ 2
+        ≤ ∑ n ∈ Finset.Ioc 0 N, (2 * ((ω n : ℝ) - S) ^ 2 + 2 * (S - L) ^ 2) :=
+          Finset.sum_le_sum hterm
+      _ = 2 * ∑ n ∈ Finset.Ioc 0 N, ((ω n : ℝ) - S) ^ 2 + 2 * (N : ℝ) * (S - L) ^ 2 := by
+          rw [Finset.sum_add_distrib, ← Finset.mul_sum, Finset.sum_const, nsmul_eq_mul]
+          have hcard : ((Finset.Ioc 0 N).card : ℝ) = (N : ℝ) := by
+            rw [Nat.card_Ioc, Nat.sub_zero]
+          rw [hcard]
+          ring
+  have h1 : 2 * ∑ n ∈ Finset.Ioc 0 N, ((ω n : ℝ) - S) ^ 2 ≤ 2 * (3 * (N : ℝ) * S) := by
+    linarith
+  have h2 : 2 * (N : ℝ) * (S - L) ^ 2 ≤ 2 * (N : ℝ) * 81 := by
+    have hmul := mul_le_mul_of_nonneg_left hsq hN0
+    linarith
+  have h3 : 2 * (3 * (N : ℝ) * S) + 2 * (N : ℝ) * 81 ≤ 222 * (N : ℝ) * L := by
+    have hNS : (N : ℝ) * S ≤ (N : ℝ) * (L + 9) := mul_le_mul_of_nonneg_left hbu hN0
+    nlinarith [hNS, hN0, hL]
+  linarith [hsum, h1, h2, h3]
+
+/-- The Chebyshev step: the exceptional density is at most `222 / (ε² loglog N)`. -/
+theorem card_exceptional_mul_le {N : ℕ} {ε : ℝ} (hL : 1 ≤ loglog N)
+    (hε : 0 ≤ ε * loglog N) :
+    ((exceptional N ε).card : ℝ) * (ε * loglog N) ^ 2
+      ≤ 222 * (N : ℝ) * loglog N := by
+  have hsub : exceptional N ε ⊆ Finset.Ioc 0 N := Finset.filter_subset _ _
+  have hterm : ∀ n ∈ exceptional N ε,
+      (ε * loglog N) ^ 2 ≤ ((ω n : ℝ) - loglog N) ^ 2 := by
+    intro n hn
+    have hlt : ε * loglog N < |(ω n : ℝ) - loglog N| := (Finset.mem_filter.mp hn).2
+    calc (ε * loglog N) ^ 2 ≤ |(ω n : ℝ) - loglog N| ^ 2 := pow_le_pow_left₀ hε hlt.le 2
+      _ = ((ω n : ℝ) - loglog N) ^ 2 := sq_abs _
+  have hlow : ((exceptional N ε).card : ℝ) * (ε * loglog N) ^ 2
+      ≤ ∑ n ∈ exceptional N ε, ((ω n : ℝ) - loglog N) ^ 2 := by
+    have hconst : ((exceptional N ε).card : ℝ) * (ε * loglog N) ^ 2
+        = ∑ _n ∈ exceptional N ε, (ε * loglog N) ^ 2 := by
+      rw [Finset.sum_const, nsmul_eq_mul]
+    rw [hconst]
+    exact Finset.sum_le_sum hterm
+  calc ((exceptional N ε).card : ℝ) * (ε * loglog N) ^ 2
+      ≤ ∑ n ∈ exceptional N ε, ((ω n : ℝ) - loglog N) ^ 2 := hlow
+    _ ≤ ∑ n ∈ Finset.Ioc 0 N, ((ω n : ℝ) - loglog N) ^ 2 :=
+        Finset.sum_le_sum_of_subset_of_nonneg hsub (fun _ _ _ => sq_nonneg _)
+    _ ≤ 222 * (N : ℝ) * loglog N := sum_sq_dev_loglog_le hL
+
+/-- **Hardy–Ramanujan**: the number of distinct prime factors has normal order
+`log log N`. -/
+theorem hardy_ramanujan : HardyRamanujanTheorem := by
+  intro ε hε
+  have hε2 : (0 : ℝ) < ε ^ 2 := by positivity
+  have hupper : Tendsto (fun N : ℕ => 222 / (ε ^ 2 * loglog N)) atTop (𝓝 0) := by
+    have h : Tendsto (fun N : ℕ => (ε ^ 2 * loglog N)⁻¹) atTop (𝓝 0) :=
+      (tendsto_loglog.const_mul_atTop hε2).inv_tendsto_atTop
+    have h2 : Tendsto (fun N : ℕ => 222 * (ε ^ 2 * loglog N)⁻¹) atTop (𝓝 0) := by
+      simpa using tendsto_const_nhds.mul h
+    simpa [div_eq_mul_inv] using h2
+  refine tendsto_of_tendsto_of_tendsto_of_le_of_le'
+    (g := fun _ => (0 : ℝ)) (h := fun N : ℕ => 222 / (ε ^ 2 * loglog N))
+    tendsto_const_nhds hupper ?_ ?_
+  · filter_upwards [] with N
+    positivity
+  · filter_upwards [tendsto_loglog.eventually_ge_atTop 1, eventually_ge_atTop 1] with N hL hN
+    have hNpos : (0 : ℝ) < (N : ℝ) := by exact_mod_cast hN
+    have hLpos : 0 < loglog N := lt_of_lt_of_le zero_lt_one hL
+    have hcard := card_exceptional_mul_le (N := N) (ε := ε) hL (by positivity)
+    have h1 : ((exceptional N ε).card : ℝ) * (ε ^ 2 * loglog N) * loglog N
+        ≤ 222 * (N : ℝ) * loglog N := by
+      have heq : (ε * loglog N) ^ 2 = ε ^ 2 * loglog N * loglog N := by ring
+      rw [heq] at hcard
+      simpa only [mul_assoc] using hcard
+    rw [div_le_div_iff₀ hNpos (by positivity)]
+    by_contra hcon
+    push Not at hcon
+    have hmul := mul_lt_mul_of_pos_right hcon hLpos
+    linarith [h1, hmul]
 
 end ArithmeticFunction
