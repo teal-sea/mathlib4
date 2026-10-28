@@ -5,10 +5,10 @@ Authors: Thomas Lince
 -/
 module
 
-public import Mathlib.NumberTheory.ArithmeticFunction.Misc
-public import Mathlib.Data.Nat.Factorization.Basic
+public import Mathlib.Basic.Real.Basic
 public import Mathlib.Data.Nat.Cast.Order.Field
-public import Mathlib.Data.Real.Basic
+public import Mathlib.Data.Nat.Factorization.Basic
+public import Mathlib.NumberTheory.ArithmeticFunction.Misc
 
 /-!
 # Double counting for the number of distinct prime factors
@@ -94,10 +94,6 @@ end Nat
 namespace ArithmeticFunction
 
 open scoped ArithmeticFunction.omega
-
-/-- `ω n` is the cardinality of `n.primeFactors`. -/
-theorem cardDistinctFactors_eq_card_primeFactors (n : ℕ) : ω n = n.primeFactors.card := by
-  rw [cardDistinctFactors_apply, Nat.primeFactors, List.card_toFinset]
 
 /-- For `0 < n ≤ N`, `ω n` counts the primes `p ≤ N` dividing `n`. -/
 theorem cardDistinctFactors_eq_sum_ite {N n : ℕ} (hn : n ∈ Finset.Ioc 0 N) :
