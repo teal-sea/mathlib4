@@ -11,8 +11,6 @@ public import Mathlib.Analysis.Complex.ExponentialBounds
 public import Mathlib.Analysis.PSeries
 public import Mathlib.NumberTheory.Chebyshev
 
-@[expose] public section
-
 /-!
 # Mertens's theorems (hunt r_3c1cbb, Wikidata Q1196729)
 
@@ -55,6 +53,8 @@ The same `log t ≤ t/e` majorant is what replaces `log n ≤ 2 √n` in
 that carries `∑_{n ≤ N} (log n)/n²` from `6` to `3/2`.
 -/
 
+
+@[expose] public section
 
 open Finset Real
 open ArithmeticFunction hiding log id
